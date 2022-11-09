@@ -1,0 +1,49 @@
+import boto3
+import paramiko
+
+def lambda_handler(event,context):
+    results = []
+    client = boto3.client('elbv2')
+    response = client.describe_target_health(TargetGroupArn='arn:aws:elasticloadbalancing:ap-south-1:710222791487:targetgroup/tomcat-tg/8b83ee98fc19dc45')
+    for t in response['TargetHealthDescriptions']:
+        result = {'id': t['Target']['Id'], 'port': t['Target']['Port'], 'state': t['TargetHealth']['State'], 'reason': ""}
+        if 'Description' in t['TargetHealth']:
+            result['reason'] = t['TargetHealth']['Description']
+        if (result['state'] != "unhealthy" and result['state'] != "initial" and result['reason'] != "Target is in the stopped state"):
+            results.append("{}".format(result['id']))
+            hostPrivateIP = []
+            client1 = boto3.client('ec2')
+            response1 = client1.describe_instances(InstanceIds=results)
+            for r in response1["Reservations"]:
+                for instance in r["Instances"]:
+                    #private_ip = instance["PrivateIpAddress"]
+                    hostPrivateIP.append(instance["PrivateIpAddress"])
+            print(hostPrivateIP)
+    s3_client = boto3.client("s3")
+     # downloading pem filr from S3
+    s3_client.download_file("lambdakeyfilestore", "keys/mumbai.pem", "/tmp/mumbai.pem")
+
+    # reading pem file and creating key object
+    key = paramiko.RSAKey.from_private_key_file("/tmp/mumbai.pem")
+    # an instance of the Paramiko.SSHClient
+    ssh_client = paramiko.SSHClient()
+    # setting policy to connect to unknown host
+    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    host = hostPrivateIP[0]
+    print("Connecting to : " + host)
+    # connecting to server
+    ssh_client.connect(hostname=host, username="ec2-user", pkey=key)
+    print("Connected to :" + host)
+
+    # command list
+    commands = ["ls","mkdir helloworld"]
+
+    # executing list of commands within server
+    for command in commands:
+        print("Executing {command}")
+        stdin, stdout, stderr = ssh_client.exec_command(command)
+        print(stdout.read())
+        print(stderr.read())
+
+    return {"statusCode": 200}
