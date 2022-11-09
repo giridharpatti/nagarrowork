@@ -1,0 +1,22 @@
+import boto3
+
+def lambda_handler(event,context):
+    client = boto3.client('ecr')
+    response = client.list_images(
+    registryId='710222791487',
+    repositoryName='demo',
+    maxResults=1000,
+    filter={
+        'tagStatus': 'TAGGED'
+    })
+    response1 = client.describe_repositories(
+    registryId='710222791487',
+    repositoryNames=[
+        'demo',
+    ])
+    list1 = []
+    uri=response1['repositories'][0]['repositoryArn']
+    for image in response['imageIds']:
+        tags=image['imageTag']
+        list1.append(int(tags))
+    print(f"{uri}:{max(list1)}")
