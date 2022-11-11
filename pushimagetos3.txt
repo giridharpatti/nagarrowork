@@ -1,0 +1,12 @@
+build the image and push to s3:
+-------------------------------
+1. build the image using "docker build -t httpd:1 ."
+2. package the docker image using " docker save -o httpd_1.tar httpd:1"
+3. copy to s3 using "aws s3 cp httpd_1.tar s3://bucketname/foldername/tarfilename"
+
+pull the image and deploy:
+--------------------------
+1. copy from s3 using "aws s3 cp s3://bucketname/foldername/tarfilename /opt/tarfilename"
+2. docker load --input /opt/tarfilename
+3. keep the latest image in docker-compose.yml
+4. docker-compose build && docker-compose up -d
